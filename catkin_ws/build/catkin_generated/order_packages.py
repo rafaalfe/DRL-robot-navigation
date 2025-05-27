@@ -1,5 +1,0 @@
-# generated from catkin/cmake/template/order_packages.context.py.in
-source_root_dir = '/home/rafaalfe/DRL-robot-navigation/catkin_ws/src'
-whitelisted_packages = 'my_robot_description'.split(';') if 'my_robot_description' != '' else []
-blacklisted_packages = ''.split(';') if '' != '' else []
-underlay_workspaces = '/home/rafaalfe/DRL-robot-navigation/catkin_ws/devel_isolated/velodyne_simulator;/home/rafaalfe/DRL-robot-navigation/catkin_ws/devel_isolated/velodyne_gazebo_plugins;/home/rafaalfe/DRL-robot-navigation/catkin_ws/devel_isolated/velodyne_description;/home/rafaalfe/DRL-robot-navigation/catkin_ws/devel_isolated/multi_robot_scenario;/home/rafaalfe/realsense/devel;/opt/ros/noetic'.split(';') if '/home/rafaalfe/DRL-robot-navigation/catkin_ws/devel_isolated/velodyne_simulator;/home/rafaalfe/DRL-robot-navigation/catkin_ws/devel_isolated/velodyne_gazebo_plugins;/home/rafaalfe/DRL-robot-navigation/catkin_ws/devel_isolated/velodyne_description;/home/rafaalfe/DRL-robot-navigation/catkin_ws/devel_isolated/multi_robot_scenario;/home/rafaalfe/realsense/devel;/opt/ros/noetic' != '' else []
