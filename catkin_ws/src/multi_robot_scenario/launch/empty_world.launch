@@ -16,7 +16,7 @@
   <arg name="world_name" default="TD3.world"/>
   <arg name="respawn_gazebo" default="true"/>
   <arg name="use_clock_frequency" default="false"/>
-  <arg name="pub_clock_frequency" default="1000"/>
+  <arg name="pub_clock_frequency" default="10000"/>
 
   <!-- set use_sim_time flag -->
   <param name="/use_sim_time" value="$(arg use_sim_time)"/>
@@ -39,8 +39,8 @@
 	args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)" />
 	
   <!-- start gazebo client -->
-  <group if="$(arg gui)">
+  <!-- <group if="$(arg gui)">
     <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen"/>
-  </group>
+  </group> -->
 
 </launch>

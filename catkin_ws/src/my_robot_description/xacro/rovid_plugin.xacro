@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Joint State Publisher -->
+  <xacro:macro name="rovid_joints_state_publisher">
+    <gazebo>
+      <plugin name="joint_state_publisher" filename="libgazebo_ros_joint_state_publisher.so">
+        <robotNamespace></robotNamespace>
+        <jointName>left_wheel_jount, right_wheel_joint</jointName>
+        <updateRate>60.0</updateRate>
+        <alwaysOn>true</alwaysOn>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Differential Drive untuk kontrol roda SAJA, tanpa odometry -->
+  <xacro:macro name="rovid_diff_drive">
+    <gazebo>
+      <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
+        <rosDebugLevel>Debug</rosDebugLevel>
+        <robotNamespace></robotNamespace>
+        <publishWheelTF>false</publishWheelTF>
+        <publishWheelJointState>true</publishWheelJointState>
+        <alwaysOn>true</alwaysOn>
+        <leftJoint>left_wheel_jount</leftJoint>
+        <rightJoint>right_wheel_joint</rightJoint>
+        <wheelSeparation>0.3</wheelSeparation>
+        <wheelDiameter>0.175</wheelDiameter>
+        <wheelTorque>20</wheelTorque>
+        <wheelAcceleration>1.8</wheelAcceleration>
+        <commandTopic>cmd_vel</commandTopic>
+        <!-- Odometry & TF dinonaktifkan -->
+        <!-- <publishTf>false</publishTf> -->
+        <odometryTopic>odom</odometryTopic>
+        <odometryFrame>odom</odometryFrame>
+        <odometrySource>world</odometrySource>
+        <robotBaseFrame>base_link</robotBaseFrame>
+        <updateRate>60</updateRate>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Laser Scan Matcher sebagai sumber odometry -->
+  <!-- <xacro:macro name="rovid_laser_scan_matcher">
+    <gazebo>
+      <plugin name="laser_scan_matcher" filename="libscan_matcher_plugin.so">
+        <robotNamespace></robotNamespace>
+        <scanTopic>/scan</scanTopic>
+        <odomTopic>odom</odomTopic> 
+        <baseFrameName>base_link</baseFrameName>
+        <odomFrameName>odom</odomFrameName>
+        <worldFrameName>odom</worldFrameName>
+        <updateRate>20.0</updateRate>
+        <publishTf>true</publishTf>
+        <useTfScanTransformation>false</useTfScanTransformation>
+      </plugin>
+    </gazebo>
+  </xacro:macro> -->
+
+</robot>
