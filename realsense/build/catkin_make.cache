@@ -1,0 +1,2 @@
+realsense-ros/realsense2_camera:realsense-ros/realsense2_description:realsense-ros/realsense_gazebo_plugin
+-DCATKIN_DEVEL_PREFIX=/home/robot/realsense/devel -DCMAKE_INSTALL_PREFIX=/home/robot/realsense/install -G Unix Makefiles
