@@ -39,8 +39,8 @@
 	args="$(arg command_arg1) $(arg command_arg2) $(arg command_arg3) -e $(arg physics) $(arg extra_gazebo_args) $(arg world_name)" />
 	
   <!-- start gazebo client -->
-  <!-- <group if="$(arg gui)">
+  <group if="$(arg gui)">
     <node name="gazebo_gui" pkg="gazebo_ros" type="gzclient" respawn="false" output="screen"/>
-  </group> -->
+  </group>
 
 </launch>

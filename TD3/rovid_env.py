@@ -18,7 +18,7 @@ from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 
 GOAL_REACHED_DIST = 0.3
-COLLISION_DIST = 0.35
+COLLISION_DIST = 0.55
 TIME_DELTA = 0.1
 
 
@@ -84,7 +84,7 @@ class GazeboEnv:
         self.last_odom = None
 
         self.set_self_state = ModelState()
-        self.set_self_state.model_name = "r1"
+        self.set_self_state.model_name = "rovid"
         self.set_self_state.pose.position.x = 0.0
         self.set_self_state.pose.position.y = 0.0
         self.set_self_state.pose.position.z = 0.0
@@ -118,7 +118,7 @@ class GazeboEnv:
         print("Gazebo launched!")
 
         # Set up the ROS publishers and subscribers
-        self.vel_pub = rospy.Publisher("/r1/cmd_vel", Twist, queue_size=1)
+        self.vel_pub = rospy.Publisher("/rovid/cmd_vel", Twist, queue_size=1)
         self.set_state = rospy.Publisher(
             "gazebo/set_model_state", ModelState, queue_size=10
         )
@@ -140,7 +140,7 @@ class GazeboEnv:
         )
         
         self.odom = rospy.Subscriber(
-            "/r1/odom", Odometry, self.odom_callback, queue_size=1
+            "/rovid/odom", Odometry, self.odom_callback, queue_size=1
         )
 
     # Read camera depth pointcloud and turn it into distance data
