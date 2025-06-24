@@ -27,8 +27,8 @@ def make_env(port, rank, log_dir):
 
 if __name__ == '__main__':
     # --- KONFIGURASI UTAMA ---
-    num_cpu = 1
-    total_timesteps = int(5e6)
+    num_cpu = 4
+    total_timesteps = int(20e6)
     log_dir = "./sb3_logs_rovid_final/" # Ganti nama log dir agar tidak tercampur
     os.makedirs(log_dir, exist_ok=True)
 

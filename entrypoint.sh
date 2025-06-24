@@ -9,7 +9,19 @@ source "/root/catkin_ws/devel/setup.bash"
 
 # Jalankan perintah apa pun yang diberikan saat 'docker run' (misalnya, 'python3 train_parallel.py')
 
-xterm -hold -e "roslaunch pclprocess train.launch rviz:=false" &
+xterm -hold -e "export ROS_MASTER_URI=http://localhost:11311; export ROS_HOSTNAME=localhost; roslaunch pclprocess train.launch rviz:=false port:=11346" &
+
+sleep 10
+
+xterm -hold -e "export ROS_MASTER_URI=http://localhost:11312; export ROS_HOSTNAME=localhost; roslaunch pclprocess train.launch rviz:=false port:=11347" &
+
+sleep 10
+
+xterm -hold -e "export ROS_MASTER_URI=http://localhost:11313; export ROS_HOSTNAME=localhost; roslaunch pclprocess train.launch rviz:=false port:=11348" &
+
+sleep 10
+
+xterm -hold -e "export ROS_MASTER_URI=http://localhost:11314; export ROS_HOSTNAME=localhost; roslaunch pclprocess train.launch rviz:=true port:=11349" &
 
 sleep 30
 
