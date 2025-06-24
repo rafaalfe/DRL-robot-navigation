@@ -1,0 +1,43 @@
+<launch>
+    <!-- arguments for the urdf xacro file, rviz visualization and namespace -->
+    <!-- <arg name="model" default="$(find realsense2_description)/urdf/test_l515_camera.urdf.xacro"/> -->
+    <!-- <param name="robot_description" command="$(find xacro)/xacro inorder $(arg model)" />
+    <node pkg="robot_state_publisher" type="robot_state_publisher"  name="robot_state_publisher"> -->
+      <!-- <param name="publish_frequency" type="double" value="30.0" /> -->
+    <!-- </node> -->
+
+    <!-- this will include the launch file for gazebo given the model -->  
+    <!-- <include file="$(find realsense2_description)/launch/gazebo.launch">
+      <arg name="model" value="$(arg model)" />
+    </include>
+
+    <arg name="gui" default="True" />
+    <param name="use_gui" value="$(arg gui)" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find realsense2_description)/rviz/urdf.rviz" required="true" />
+     -->
+    <node pkg="pclprocess" type="pcl_slice_5_node" name="pointcloud_slicer" output="screen">
+    <!-- Parameter kamera L515 (berdasarkan focal length 1.8mm) -->
+    <!-- Untuk 1024x768: fx=732, fy=739 -->
+    <!-- Untuk 1280x720: fx=915, fy=693 -->
+
+      
+      <!-- Parameter LaserScan -->
+      <param name="angle_min" value="-0.61"/>    <!-- -90 derajat -->
+      <param name="angle_max" value="0.61"/>     <!-- +90 derajat -->
+      <param name="range_min" value="0.25"/>     <!-- 25cm -->
+      <param name="range_max" value="9.0"/>      <!-- 9m -->
+      
+      <!-- Baris yang diambil (0 = atas, height/2 = tengah) -->
+      <param name="slice_height" value="384"/>   <!-- tengah untuk 768px height -->
+              <!-- nh_.param("angle_min", angle_min_, -1.5708);   // -90 derajat dalam radian
+        nh_.param("angle_max", angle_max_, 1.5708);    // +90 derajat dalam radian
+        nh_.param("range_min", range_min_, 0.2);       // 20cm
+        nh_.param("range_max", range_max_, 9.0);       // 9m (batas max L515)
+        nh_.param("slice_height", slice_height_, -1);  // Default -1 berarti akan diatur ke tengah secara otomatis
+        nh_.param("slice_thickness", slice_thickness_, 5);  // Thickness of slice to average
+        nh_.param("scan_frequency", scan_frequency_, 30.0);  // Scan frequency in Hz
+        nh_.param("frame_id", frame_id_, std::string("camera_depth_frame")); -->
+      <!-- Frame ID -->
+      <param name="frame_id" value="camera_l515_depth_optical_frame"/>
+    </node>
+</launch>

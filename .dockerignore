@@ -1,0 +1,22 @@
+# Direktori build Catkin
+build/
+devel/
+install/
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Direktori log SB3 dan ROS
+sb3_logs_rovid_advanced/
+sb3_logs_rovid_final/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# File Docker itu sendiri
+Dockerfile
+.dockerignore

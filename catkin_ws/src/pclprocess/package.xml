@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>pclprocess</name>
+  <version>1.0.0</version>
+  <description>ROS package for slicing RealSense L515 pointcloud into three laser scans</description>
+  
+  <maintainer email="your_email@example.com">Your Name</maintainer>
+  <license>MIT</license>
+  
+  <buildtool_depend>catkin</buildtool_depend>
+  
+    <build_depend>cv_bridge</build_depend>
+    <build_depend>sensor_msgs</build_depend>
+    <build_depend>roscpp</build_depend>
+    <build_depend>rospy</build_depend>
+    <build_depend>std_msgs</build_depend>
+    
+    <build_depend>message_filters</build_depend>
+    <exec_depend>cv_bridge</exec_depend>
+    <exec_depend>sensor_msgs</exec_depend>
+    <exec_depend>roscpp</exec_depend>
+    <exec_depend>rospy</exec_depend>
+    <exec_depend>std_msgs</exec_depend>
+    <exec_depend>message_filters</exec_depend>
+    <depend>tf2_ros</depend>
+
+    
+
+  <export>
+  </export>
+</package>

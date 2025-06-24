@@ -5,83 +5,110 @@ import subprocess
 import time
 from os import path
 
+import gymnasium as gym
+from gymnasium import spaces
 import numpy as np
 import rospy
 import sensor_msgs.point_cloud2 as pc2
 from gazebo_msgs.msg import ModelState
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from sensor_msgs.msg import PointCloud2, LaserScan
+from rospkg import RosPack
+from sensor_msgs.msg import LaserScan, PointCloud2
 from squaternion import Quaternion
 from std_srvs.srv import Empty
-from visualization_msgs.msg import Marker
-from visualization_msgs.msg import MarkerArray
+from visualization_msgs.msg import Marker, MarkerArray
 
+# --- Konstanta Global ---
 GOAL_REACHED_DIST = 0.3
-COLLISION_DIST = 0.55
-TIME_DELTA = 0.1
+COLLISION_DIST = 0.55  # Jarak deteksi tabrakan dari RPLiDAR
+TIME_DELTA = 0.1  # Durasi setiap step
+max_episode_steps = 500
 
 
-# Check if the random goal position is located on an obstacle and do not accept it if it is
 def check_pos(x, y):
+    """
+    Fungsi helper untuk memeriksa apakah sebuah posisi (goal/box) berada di dalam area rintangan statis.
+    """
     goal_ok = True
-
-    if -3.8 > x > -6.2 and 6.2 > y > 3.8:
-        goal_ok = False
-
-    if -1.3 > x > -2.7 and 4.7 > y > -0.2:
-        goal_ok = False
-
-    if -0.3 > x > -4.2 and 2.7 > y > 1.3:
-        goal_ok = False
-
-    if -0.8 > x > -4.2 and -2.3 > y > -4.2:
-        goal_ok = False
-
-    if -1.3 > x > -3.7 and -0.8 > y > -2.7:
-        goal_ok = False
-
-    if 4.2 > x > 0.8 and -1.8 > y > -3.2:
-        goal_ok = False
-
-    if 4 > x > 2.5 and 0.7 > y > -3.2:
-        goal_ok = False
-
-    if 6.2 > x > 3.8 and -3.3 > y > -4.2:
-        goal_ok = False
-
-    if 4.2 > x > 1.3 and 3.7 > y > 1.5:
-        goal_ok = False
-
-    if -3.0 > x > -7.2 and 0.5 > y > -1.5:
-        goal_ok = False
-
-    if x > 4.5 or x < -4.5 or y > 4.5 or y < -4.5:
-        goal_ok = False
-
+    if -3.8 > x > -6.2 and 6.2 > y > 3.8: goal_ok = False
+    if -1.3 > x > -2.7 and 4.7 > y > -0.2: goal_ok = False
+    if -0.3 > x > -4.2 and 2.7 > y > 1.3: goal_ok = False
+    if -0.8 > x > -4.2 and -2.3 > y > -4.2: goal_ok = False
+    if -1.3 > x > -3.7 and -0.8 > y > -2.7: goal_ok = False
+    if 4.2 > x > 0.8 and -1.8 > y > -3.2: goal_ok = False
+    if 4 > x > 2.5 and 0.7 > y > -3.2: goal_ok = False
+    if 6.2 > x > 3.8 and -3.3 > y > -4.2: goal_ok = False
+    if 4.2 > x > 1.3 and 3.7 > y > 1.5: goal_ok = False
+    if -3.0 > x > -7.2 and 0.5 > y > -1.5: goal_ok = False
+    if x > 4.5 or x < -4.5 or y > 4.5 or y < -4.5: goal_ok = False
     return goal_ok
 
 
-class GazeboEnv:
-    """Superclass for all Gazebo environments."""
+class GazeboEnv(gym.Env):
+    """
+    ROS Gazebo Environment untuk training DRL, kompatibel dengan OpenAI Gym dan Stable Baselines3.
+    Dirancang untuk training paralel dengan instance simulasi yang terisolasi.
+    """
 
-    def __init__(self, launchfile, environment_dim):
-        self.environment_dim = environment_dim
+    def __init__(self, launchfile=None, port=11311, launch_delay=0): # launchfile tidak lagi dipakai
+        super(GazeboEnv, self).__init__()
+
+        # --- TAHAP 1: Tunggu giliran (jika ada jeda) ---
+        if launch_delay > 0:
+            print(f"Proses environment untuk port {port} menunggu {launch_delay} detik...")
+            time.sleep(launch_delay)
+
+        # --- TAHAP 2: Hubungkan ke ROS Master yang Sudah Ada ---
+        ros_port = str(port)
+        os.environ["ROS_MASTER_URI"] = f"http://localhost:{ros_port}"
+        
+        # Inisialisasi node ini ke roscore yang sudah berjalan di port tersebut
+        try:
+            rospy.init_node(f"rovid_env_client_{ros_port}", anonymous=True)
+            print(f"Berhasil terhubung ke ROS Master di port {ros_port}.")
+        except rospy.exceptions.ROSException as e:
+            rospy.logerr(f"Gagal terhubung ke ROS Master di port {ros_port}. Pastikan Anda sudah menjalankan 'roscore' atau 'roslaunch' di terminal terpisah untuk port ini. Error: {e}")
+            raise e
+
+
+        # --- Inisialisasi Variabel State & Robot ---
         self.odom_x = 0
         self.odom_y = 0
-
-        self.goal_x = 1
+        self.goal_x = 1.0
         self.goal_y = 0.0
 
-        self.upper = 5.0
-        self.lower = -5.0
-        
-        # Data from different sensors
-        self.depth_data = np.ones(self.environment_dim) * 10
-        self.lidar_data = np.ones(self.environment_dim) * 10
-        self.combined_data = np.ones(self.environment_dim) * 10
-        
+        self.upper = 5.0 # Batas atas untuk random goal
+        self.lower = -5.0 # Batas bawah untuk random goal
         self.last_odom = None
+
+        self.max_episode_steps = max_episode_steps
+        self.current_step = 0
+        
+        # Inisialisasi State Persepsi
+        self.perception_state_size = 1050  # 350 titik (5x70) * 3 koordinat (x,y,z)
+        self.perception_range_max = 9.0    # Sesuai range L515
+        self.perception_state = np.ones(self.perception_state_size) * self.perception_range_max
+
+        self.rplidar_state_size = 240
+        self.rplidar_range_max = 6.0       # Sesuai data /scan Anda
+        self.rplidar_state = np.ones(self.rplidar_state_size) * self.rplidar_range_max
+        self.raw_rplidar_scan = np.ones(self.rplidar_state_size) * self.rplidar_range_max
+        
+        # --- Publishers dan Subscribers ---
+        self.vel_pub = rospy.Publisher("/rovid/cmd_vel", Twist, queue_size=1)
+        self.set_state = rospy.Publisher("gazebo/set_model_state", ModelState, queue_size=10)
+        self.unpause = rospy.ServiceProxy("/gazebo/unpause_physics", Empty)
+        self.pause = rospy.ServiceProxy("/gazebo/pause_physics", Empty)
+        self.reset_proxy = rospy.ServiceProxy("/gazebo/reset_world", Empty)
+        self.publisher = rospy.Publisher("goal_point", MarkerArray, queue_size=3)
+        self.publisher2 = rospy.Publisher("linear_velocity", MarkerArray, queue_size=1)
+        self.publisher3 = rospy.Publisher("angular_velocity", MarkerArray, queue_size=1)
+
+        self.odom_sub = rospy.Subscriber("/rovid/odom", Odometry, self.odom_callback, queue_size=1)
+        self.drl_points_sub = rospy.Subscriber(
+            "/depth_scan_cloud", PointCloud2, self.depth_data_callback, queue_size=1, buff_size=2**24)
+        self.rplidar_sub = rospy.Subscriber("/scan", LaserScan, self.rplidar_callback, queue_size=1)
 
         self.set_self_state = ModelState()
         self.set_self_state.model_name = "rovid"
@@ -92,275 +119,265 @@ class GazeboEnv:
         self.set_self_state.pose.orientation.y = 0.0
         self.set_self_state.pose.orientation.z = 0.0
         self.set_self_state.pose.orientation.w = 1.0
+        # --- Definisi Wajib untuk Stable Baselines3 ---
+        # Action: [kecepatan_linear, kecepatan_sudut], nilai dinormalisasi antara -1 dan 1
+        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
 
-        self.gaps = [[-np.pi / 2 - 0.03, -np.pi / 2 + np.pi / self.environment_dim]]
-        for m in range(self.environment_dim - 1):
-            self.gaps.append(
-                [self.gaps[m][1], self.gaps[m][1] + np.pi / self.environment_dim]
-            )
-        self.gaps[-1][-1] += 0.03
+        # Observation: gabungan semua data persepsi dan data robot
+        state_dim = self.perception_state_size + self.rplidar_state_size + 4 # 1050 + 240 + 4 = 1294
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(state_dim,), dtype=np.float32)
 
-        port = "11311"
-        subprocess.Popen(["roscore", "-p", port])
+        print(f"Environment di port {ros_port} berhasil diinisialisasi.")
 
-        print("Roscore launched!")
+    def rplidar_callback(self, scan_data):
+        """
+        Callback ini menerima data LaserScan 360° dari RPLiDAR,
+        melakukan downsampling ke ukuran yang tetap, menormalisasi,
+        dan menyimpannya di self.rplidar_state.
+        """
+        try:
+            raw_ranges = np.array(scan_data.ranges)
+            
+            # Ganti nilai 'inf' dan 'nan' dengan jarak maksimum sensor
+            raw_ranges[np.isinf(raw_ranges)] = self.rplidar_range_max
+            raw_ranges[np.isnan(raw_ranges)] = self.rplidar_range_max
+            
+            # --- Proses Downsampling ---
+            # Ambil data mentah dan downsample ke ukuran yang kita inginkan (self.rplidar_state_size)
+            # Ini adalah cara sederhana dan efisien untuk mengambil sampel secara merata
+            num_raw_points = len(raw_ranges)
+            step = float(num_raw_points) / self.rplidar_state_size
+            
+            downsampled_ranges = []
+            for i in range(self.rplidar_state_size):
+                index = int(i * step)
+                downsampled_ranges.append(raw_ranges[index])
+            
+            self.raw_rplidar_scan = np.array(downsampled_ranges) # Simpan data mentah (dalam meter)
 
-        # Launch the simulation with the given launchfile name
-        rospy.init_node("gym", anonymous=True)
-        if launchfile.startswith("/"):
-            fullpath = launchfile
-        else:
-            fullpath = os.path.join(os.path.dirname(__file__), "assets", launchfile)
-        if not path.exists(fullpath):
-            raise IOError("File " + fullpath + " does not exist")
+            # Normalisasi data ke rentang [0, 1]
+            normalized_ranges = self.raw_rplidar_scan / self.rplidar_range_max
+            
+            # Simpan hasil akhir ke variabel state
+            self.rplidar_state = normalized_ranges
 
-        subprocess.Popen(["roslaunch", "-p", port, fullpath])
-        print("Gazebo launched!")
+        except Exception as e:
+            rospy.logerr("Error processing RPLiDAR scan: %s", str(e))
 
-        # Set up the ROS publishers and subscribers
-        self.vel_pub = rospy.Publisher("/rovid/cmd_vel", Twist, queue_size=1)
-        self.set_state = rospy.Publisher(
-            "gazebo/set_model_state", ModelState, queue_size=10
-        )
-        self.unpause = rospy.ServiceProxy("/gazebo/unpause_physics", Empty)
-        self.pause = rospy.ServiceProxy("/gazebo/pause_physics", Empty)
-        self.reset_proxy = rospy.ServiceProxy("/gazebo/reset_world", Empty)
-        self.publisher = rospy.Publisher("goal_point", MarkerArray, queue_size=3)
-        self.publisher2 = rospy.Publisher("linear_velocity", MarkerArray, queue_size=1)
-        self.publisher3 = rospy.Publisher("angular_velocity", MarkerArray, queue_size=1)
-        
-        # Subscribe to camera depth points instead of velodyne
-        self.depth_camera = rospy.Subscriber(
-            "/camera/depth/color/points", PointCloud2, self.depth_camera_callback, queue_size=1
-        )
-        
-        # Subscribe to RPLidar A2M8
-        self.lidar_scan = rospy.Subscriber(
-            "/scan", LaserScan, self.lidar_callback, queue_size=1
-        )
-        
-        self.odom = rospy.Subscriber(
-            "/rovid/odom", Odometry, self.odom_callback, queue_size=1
-        )
+    def depth_data_callback(self, cloud_msg):
+        """
+        Callback ini menerima pesan PointCloud2 yang sudah di-slice,
+        memprosesnya menjadi vektor state 1D yang bersih dan ternormalisasi,
+        dan menyimpannya di self.perception_state.
+        """
+        try:
+            # 1. Baca point cloud secara efisien menggunakan generator
+            # cloud_msg[np.zeros(cloud_msg)] = self.perception_range_max
+            point_generator = pc2.read_points(cloud_msg, 
+                                              skip_nans=True, # Langsung lewati NaN dari sumber
+                                              field_names=("x", "y", "z"))
+            
+            # 2. Tampung semua titik valid ke dalam list sementara
+            temp_points = []
+            for point in point_generator:
+                # point adalah tuple (x, y, z)
+                # Normalisasi setiap koordinat. Ini sangat membantu training.
+                # Kita bagi dengan jangkauan max agar nilainya antara ~[-1, 1]
+                norm_x = point[0] / self.perception_range_max
+                norm_y = point[1] / self.perception_range_max
+                norm_z = point[2] / self.perception_range_max
+                temp_points.extend([norm_x, norm_y, norm_z])
+            
+            # 3. Siapkan state vector final dengan ukuran yang dijamin konsisten
+            #    Isi dengan nilai default (1.0) yang merepresentasikan "jauh / tidak ada halangan"
+            processed_state = np.ones(self.perception_state_size, dtype=np.float32)
 
-    # Read camera depth pointcloud and turn it into distance data
-    def depth_camera_callback(self, v):
-        data = list(pc2.read_points(v, skip_nans=False, field_names=("x", "y", "z")))
-        self.depth_data = np.ones(self.environment_dim) * 10
-        
-        for i in range(len(data)):
-            if data[i][2] > -0.2:  # Filter points above ground
-                dot = data[i][0] * 1 + data[i][1] * 0
-                mag1 = math.sqrt(math.pow(data[i][0], 2) + math.pow(data[i][1], 2))
-                mag2 = math.sqrt(math.pow(1, 2) + math.pow(0, 2))
-                
-                if mag1 > 0:  # Avoid division by zero
-                    beta = math.acos(np.clip(dot / (mag1 * mag2), -1.0, 1.0)) * np.sign(data[i][1])
-                    dist = math.sqrt(data[i][0] ** 2 + data[i][1] ** 2 + data[i][2] ** 2)
+            # 4. Salin data yang sudah diproses ke state vector final
+            #    Ini untuk menangani kasus jika jumlah titik yang diterima tidak pas 350
+            num_values_to_copy = min(len(temp_points), self.perception_state_size)
+            processed_state[:num_values_to_copy] = temp_points[:num_values_to_copy]
 
-                    for j in range(len(self.gaps)):
-                        if self.gaps[j][0] <= beta < self.gaps[j][1]:
-                            self.depth_data[j] = min(self.depth_data[j], dist)
-                            break
-        
-        # Combine depth and lidar data
-        self.combine_sensor_data()
+            # 5. Simpan hasil akhir ke variabel class
+            self.perception_state = processed_state
 
-    # Read RPLidar A2M8 laser scan data
-    def lidar_callback(self, scan_data):
-        ranges = np.array(scan_data.ranges)
-        angle_min = scan_data.angle_min
-        angle_increment = scan_data.angle_increment
-        
-        self.lidar_data = np.ones(self.environment_dim) * 10
-        
-        for i, range_val in enumerate(ranges):
-            if not np.isinf(range_val) and not np.isnan(range_val):
-                angle = angle_min + i * angle_increment
-                
-                # Find which gap this angle belongs to
-                for j in range(len(self.gaps)):
-                    if self.gaps[j][0] <= angle < self.gaps[j][1]:
-                        self.lidar_data[j] = min(self.lidar_data[j], range_val)
-                        break
-        
-        # Combine depth and lidar data
-        self.combine_sensor_data()
-    
-    def combine_sensor_data(self):
-        """Combine depth camera and lidar data by taking the minimum distance for each angle"""
-        self.combined_data = np.minimum(self.depth_data, self.lidar_data)
+        except Exception as e:
+            rospy.logerr("Error processing DRL point cloud: %s", str(e))
 
     def odom_callback(self, od_data):
         self.last_odom = od_data
 
     # Perform an action and read a new state
-    def step(self, action):
-        target = False
 
-        # Publish the robot action
+    def step(self, action):
+        self.current_step += 1
+
+        # 1. Scaling aksi dari [-1, 1] ke kecepatan fisik
+        linear_vel = (action[0] + 1) / 2 * 0.5  # Map ke [0, 0.5] m/s
+        angular_vel = action[1] * 1.0         # Map ke [-1.0, 1.0] rad/s
+        
         vel_cmd = Twist()
-        vel_cmd.linear.x = action[0]
-        vel_cmd.angular.z = action[1]
+        vel_cmd.linear.x = linear_vel
+        vel_cmd.angular.z = angular_vel
         self.vel_pub.publish(vel_cmd)
         self.publish_markers(action)
-
+        
+        # 2. Jalankan simulasi untuk satu langkah waktu
         rospy.wait_for_service("/gazebo/unpause_physics")
-        try:
-            self.unpause()
-        except (rospy.ServiceException) as e:
-            print("/gazebo/unpause_physics service call failed")
-
-        # propagate state for TIME_DELTA seconds
+        try: self.unpause()
+        except rospy.ServiceException: pass # Abaikan error jika service tidak tersedia sesaat
         time.sleep(TIME_DELTA)
-
         rospy.wait_for_service("/gazebo/pause_physics")
-        try:
-            pass
-            self.pause()
-        except (rospy.ServiceException) as e:
-            print("/gazebo/pause_physics service call failed")
+        try: self.pause()
+        except rospy.ServiceException: pass
 
-        # read combined sensor data (depth camera + lidar)
-        done, collision, min_laser = self.observe_collision(self.combined_data)
-        v_state = []
-        v_state[:] = self.combined_data[:]
-        laser_state = [v_state]
+        # Guard clause jika data odometry tidak diterima
+        if self.last_odom is None:
+            rospy.logerr("Tidak menerima data odometry di step(), mengakhiri episode.")
+            dummy_state = np.zeros(self.observation_space.shape, dtype=np.float32)
+            # FIX: Kembalikan 5 item sesuai standar Gymnasium
+            return dummy_state, -200.0, True, False, {"error": "no_odom"}
 
-        # Calculate robot heading from odometry data
+        # 3. Observasi environment setelah aksi
+        done, collision, min_laser = self.observe_collision()
+        
         self.odom_x = self.last_odom.pose.pose.position.x
         self.odom_y = self.last_odom.pose.pose.position.y
+        
+        # 4. Cek kondisi akhir episode (terminated atau truncated)
+        target = False
+        terminated = False
+        truncated = False
+        
+        distance_to_goal = np.linalg.norm([self.odom_x - self.goal_x, self.odom_y - self.goal_y])
+        
+        if distance_to_goal < GOAL_REACHED_DIST:
+            print("!!! GOAL REACHED !!!")
+            target = True
+            terminated = True
+        elif collision:
+            print("--- COLLISION ---")
+            terminated = True
+        
+        # Cek kondisi batas waktu (truncated)
+        if self.current_step >= self.max_episode_steps:
+            rospy.loginfo(f"Episode mencapai batas waktu {self.max_episode_steps} langkah.")
+            truncated = True
+
+        # 5. Hitung reward
+        reward = self.get_reward(target, collision, linear_vel, angular_vel, min_laser, distance_to_goal)
+        
+        # 6. Rakit state observasi untuk dikembalikan ke agen
         quaternion = Quaternion(
-            self.last_odom.pose.pose.orientation.w,
-            self.last_odom.pose.pose.orientation.x,
-            self.last_odom.pose.pose.orientation.y,
-            self.last_odom.pose.pose.orientation.z,
+            self.last_odom.pose.pose.orientation.w, self.last_odom.pose.pose.orientation.x,
+            self.last_odom.pose.pose.orientation.y, self.last_odom.pose.pose.orientation.z
         )
-        euler = quaternion.to_euler(degrees=False)
-        angle = round(euler[2], 4)
+        angle = quaternion.to_euler(degrees=False)[2]
 
-        # Calculate distance to the goal from the robot
-        distance = np.linalg.norm(
-            [self.odom_x - self.goal_x, self.odom_y - self.goal_y]
-        )
-
-        # Calculate the relative angle between the robots heading and heading toward the goal
         skew_x = self.goal_x - self.odom_x
         skew_y = self.goal_y - self.odom_y
-        dot = skew_x * 1 + skew_y * 0
-        mag1 = math.sqrt(math.pow(skew_x, 2) + math.pow(skew_y, 2))
-        mag2 = math.sqrt(math.pow(1, 2) + math.pow(0, 2))
-        beta = math.acos(dot / (mag1 * mag2))
-        if skew_y < 0:
-            if skew_x < 0:
-                beta = -beta
-            else:
-                beta = 0 - beta
+        beta = math.atan2(skew_y, skew_x)
         theta = beta - angle
-        if theta > np.pi:
-            theta = np.pi - theta
-            theta = -np.pi - theta
-        if theta < -np.pi:
-            theta = -np.pi - theta
-            theta = np.pi - theta
+        if theta > np.pi: theta -= 2 * np.pi
+        if theta < -np.pi: theta += 2 * np.pi
 
-        # Detect if the goal has been reached and give a large positive reward
-        if distance < GOAL_REACHED_DIST:
-            target = True
-            done = True
+        perception_realsense = self.perception_state
+        perception_rplidar = self.rplidar_state
+        # Normalisasi data robot state
+        norm_distance = distance_to_goal / 10.0
+        norm_theta = theta / np.pi
+        robot_state = [norm_distance, norm_theta, linear_vel, angular_vel]
+        
+        state = np.concatenate([perception_realsense, perception_rplidar, robot_state]).astype(np.float32)
+        
+        # Info dictionary, wajib untuk gym.Env
+        info = {"is_success": target}
+        
+        # FIX: Hapus `truncated = False` yang salah di sini.
+        # Kembalikan 5 item sesuai standar Gymnasium.
+        return state, reward, terminated, truncated, info
 
-        robot_state = [distance, theta, action[0], action[1]]
-        state = np.append(laser_state, robot_state)
-        reward = self.get_reward(target, collision, action, min_laser)
-        return state, reward, done, target
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        # Panggil super().reset() jika ingin menggunakan fitur seeding dari Gym
+        super().reset(seed=seed)
 
-        # Resets the state of the environment and returns an initial observation.
+        self.current_step = 0
+        self.last_distance = None # Reset last_distance untuk kalkulasi reward
+
         rospy.wait_for_service("/gazebo/reset_world")
-        try:
-            self.reset_proxy()
-
-        except rospy.ServiceException as e:
-            print("/gazebo/reset_simulation service call failed")
+        try: self.reset_proxy()
+        except rospy.ServiceException: print("Reset simulation failed")
 
         angle = np.random.uniform(-np.pi, np.pi)
         quaternion = Quaternion.from_euler(0.0, 0.0, angle)
+        
+        # Logika penempatan robot dan goal secara acak
         object_state = self.set_self_state
-
-        x = 0
-        y = 0
-        position_ok = False
+        x, y, position_ok = 0, 0, False
         while not position_ok:
             x = np.random.uniform(-4.5, 4.5)
             y = np.random.uniform(-4.5, 4.5)
             position_ok = check_pos(x, y)
-        object_state.pose.position.x = x
-        object_state.pose.position.y = y
-        # object_state.pose.position.z = 0.
         object_state.pose.orientation.x = quaternion.x
         object_state.pose.orientation.y = quaternion.y
         object_state.pose.orientation.z = quaternion.z
         object_state.pose.orientation.w = quaternion.w
+        # object_state.pose.orientation = quaternion.to_msg()
         self.set_state.publish(object_state)
+        self.odom_x = x
+        self.odom_y = y
 
-        self.odom_x = object_state.pose.position.x
-        self.odom_y = object_state.pose.position.y
-
-        # set a random goal in empty space in environment
         self.change_goal()
-        # randomly scatter boxes in the environment
         self.random_box()
+        # --- FIX: Panggil fungsi marker yang benar ---
         self.publish_markers([0.0, 0.0])
 
+        # Unpause-pause untuk mendapatkan state awal
         rospy.wait_for_service("/gazebo/unpause_physics")
-        try:
-            self.unpause()
-        except (rospy.ServiceException) as e:
-            print("/gazebo/unpause_physics service call failed")
-
+        try: self.unpause()
+        except rospy.ServiceException: pass
         time.sleep(TIME_DELTA)
-
         rospy.wait_for_service("/gazebo/pause_physics")
-        try:
-            self.pause()
-        except (rospy.ServiceException) as e:
-            print("/gazebo/pause_physics service call failed")
+        try: self.pause()
+        except rospy.ServiceException: pass
+
+        if self.last_odom is None:
+            time.sleep(0.5)
+            if self.last_odom is None:
+                rospy.logerr("Tidak menerima data odometry saat reset.")
+                dummy_state = np.zeros(self.observation_space.shape, dtype=np.float32)
+                # FIX: Kembalikan 2 item (state, info) sesuai standar Gymnasium
+                return dummy_state, {}
         
-        v_state = []
-        v_state[:] = self.combined_data[:]
-        laser_state = [v_state]
+        # Rakit state awal yang akan dikembalikan
+        self.odom_x = self.last_odom.pose.pose.position.x
+        self.odom_y = self.last_odom.pose.pose.position.y
+        quaternion = Quaternion(self.last_odom.pose.pose.orientation.w, self.last_odom.pose.pose.orientation.x, self.last_odom.pose.pose.orientation.y, self.last_odom.pose.pose.orientation.z)
+        angle = quaternion.to_euler(degrees=False)[2]
 
-        distance = np.linalg.norm(
-            [self.odom_x - self.goal_x, self.odom_y - self.goal_y]
-        )
-
+        distance_to_goal = np.linalg.norm([self.odom_x - self.goal_x, self.odom_y - self.goal_y])
+        self.last_distance = distance_to_goal # Inisialisasi last_distance
+        
         skew_x = self.goal_x - self.odom_x
         skew_y = self.goal_y - self.odom_y
-
-        dot = skew_x * 1 + skew_y * 0
-        mag1 = math.sqrt(math.pow(skew_x, 2) + math.pow(skew_y, 2))
-        mag2 = math.sqrt(math.pow(1, 2) + math.pow(0, 2))
-        beta = math.acos(dot / (mag1 * mag2))
-
-        if skew_y < 0:
-            if skew_x < 0:
-                beta = -beta
-            else:
-                beta = 0 - beta
+        beta = math.atan2(skew_y, skew_x)
         theta = beta - angle
+        if theta > np.pi: theta -= 2 * np.pi
+        if theta < -np.pi: theta += 2 * np.pi
+        
+        perception_realsense = self.perception_state
+        perception_rplidar = self.rplidar_state
+        norm_distance = distance_to_goal / 10.0
+        norm_theta = theta / np.pi
+        robot_state = [norm_distance, norm_theta, 0.0, 0.0]
+        
+        state = np.concatenate([perception_realsense, perception_rplidar, robot_state]).astype(np.float32)
+        
+        # Kembalikan 2 item (state, info) sesuai standar Gymnasium
+        return state, {}
 
-        if theta > np.pi:
-            theta = np.pi - theta
-            theta = -np.pi - theta
-        if theta < -np.pi:
-            theta = -np.pi - theta
-            theta = np.pi - theta
 
-        robot_state = [distance, theta, 0.0, 0.0]
-        state = np.append(laser_state, robot_state)
-        return state
-
+    
     def change_goal(self):
         # Place a new goal and check if its location is not on one of the obstacles
         if self.upper < 10:
@@ -408,7 +425,7 @@ class GazeboEnv:
         markerArray = MarkerArray()
         marker = Marker()
         marker.header.frame_id = "odom"
-        marker.type = marker.CYLINDER
+        marker.type = marker.CUBE
         marker.action = marker.ADD
         marker.scale.x = 0.1
         marker.scale.y = 0.1
@@ -466,20 +483,38 @@ class GazeboEnv:
         markerArray3.markers.append(marker3)
         self.publisher3.publish(markerArray3)
 
-    @staticmethod
-    def observe_collision(laser_data):
-        # Detect a collision from combined sensor data
-        min_laser = min(laser_data)
+    def observe_collision(self): # <-- Hapus argumen 'laser_data'
+        # Gunakan self.raw_rplidar_scan secara langsung
+        if self.raw_rplidar_scan.size > 0:
+            min_laser = min(self.raw_rplidar_scan)
+        else:
+            # Jika belum ada data scan, anggap tidak ada tabrakan
+            min_laser = self.rplidar_range_max
+
         if min_laser < COLLISION_DIST:
             return True, True, min_laser
         return False, False, min_laser
 
-    @staticmethod
-    def get_reward(target, collision, action, min_laser):
+    def get_reward(self, target, collision, linear_vel, angular_vel, min_laser, distance_to_goal):
+        W_DIST = 150.0
+        W_LASER = -2.0
+        W_TIME = -0.5
+        W_ACTION = -0.1
+
         if target:
-            return 100.0
-        elif collision:
-            return -100.0
-        else:
-            r3 = lambda x: 1 - x if x < 1 else 0.0
-            return action[0] / 2 - abs(action[1]) / 2 - r3(min_laser) / 2
+            print("!!! GOAL REACHED !!!")
+            return 300.0
+        if collision:
+            print("--- COLLISION ---")
+            return -300.0
+
+        prev_distance = getattr(self, 'last_distance', distance_to_goal)
+        reward_dist = (prev_distance - distance_to_goal) * W_DIST
+        self.last_distance = distance_to_goal
+
+        reward_laser = W_LASER if min_laser < 0.7 else 0.0
+        reward_action = abs(angular_vel) * W_ACTION
+        reward_time = W_TIME
+        total_reward = reward_dist + reward_laser + reward_action + reward_time
+
+        return total_reward

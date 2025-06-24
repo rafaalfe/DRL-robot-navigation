@@ -1,0 +1,26 @@
+# Topic input PointCloud2
+input_topic: "/camera/depth/color/points"
+
+# Frame ID untuk output LaserScan
+base_frame_id: "camera_l515_link"
+
+# Parameter LaserScan
+angle_min: -0.61
+angle_max: 0.61
+angle_increment: 0.0175  # ~1 derajat dalam radian (π/180)
+range_min: 0.2      # Jarak minimum dalam meter
+range_max: 10.0     # Jarak maksimum dalam meter
+
+# Konfigurasi 3 slice horizontal
+slices:
+  - topic: "/scan_bottom"
+    min_height: -0.5
+    max_height: 0.0
+    
+  - topic: "/scan_middle"
+    min_height: 0.0
+    max_height: 0.5
+    
+  - topic: "/scan_top"
+    min_height: 0.5
+    max_height: 1.0

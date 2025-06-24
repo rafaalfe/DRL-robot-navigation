@@ -20,6 +20,15 @@
   <node pkg="joint_state_publisher" type="joint_state_publisher" name="joint_state_publisher">
       <param name="publish_frequency" type="double" value="60.0"/>
   </node>
+
+      <node pkg="pclprocess" type="pcl_slice_5_node" name="pointcloud_slicer" output="screen">
+      <param name="angle_min" value="-0.61"/>    <!-- -90 derajat -->
+      <param name="angle_max" value="0.61"/>     <!-- +90 derajat -->
+      <param name="range_min" value="0.25"/>     <!-- 25cm -->
+      <param name="range_max" value="9.0"/>      <!-- 9m -->
+      <param name="slice_height" value="384"/>   <!-- tengah untuk 768px height -->
+      <param name="frame_id" value="camera_l515_depth_optical_frame"/>
+    </node>
   
   <!-- <node pkg="laser_scan_matcher" type="laser_scan_matcher_node" name="laser_scan_matcher_node" output="screen">
     <remap from="scan" to="scan"/>
