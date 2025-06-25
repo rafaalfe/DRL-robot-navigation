@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y \
     ros-noetic-rviz \
     ros-noetic-robot-state-publisher \
     ros-noetic-joint-state-publisher \
-    xterm \
+    tmux \
     && rm -rf /var/lib/apt/lists/*
 
 
