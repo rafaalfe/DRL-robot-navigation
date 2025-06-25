@@ -7,3 +7,5 @@ pip3 install tensorboard
 python3 -m tensorboard.main --logdir sb3_logs_rovid_final
 
 if you are using vast.ai, you must setup dns. otherwise, docker cannot download your ros file because it was blocked
+
+docker build -t ros-noetic-rl .
