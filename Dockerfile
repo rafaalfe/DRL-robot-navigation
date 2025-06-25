@@ -26,8 +26,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Tahap 3: Menginstal Library Python
 # Kita gabungkan dalam satu layer untuk sedikit optimasi dan install semua dependensi Python.
-RUN pip3 install --no-cache-dir --upgrade pip && \
-    pip3 install --no-cache-dir \
+RUN pip3 install --no-cache-dir --upgrade pip  
+RUN pip3 install --no-cache-dir \
     stable-baselines3[extra] \
     squaternion \
     rospkg
