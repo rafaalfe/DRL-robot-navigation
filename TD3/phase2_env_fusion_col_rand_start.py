@@ -318,6 +318,8 @@ class GazeboEnv(gym.Env):
         object_state.pose.orientation.y = quaternion.y
         object_state.pose.orientation.z = quaternion.z
         object_state.pose.orientation.w = quaternion.w
+        object_state.pose.position.x = x
+        object_state.pose.position.y = y
         # object_state.pose.orientation = quaternion.to_msg()
         self.set_state.publish(object_state)
         self.odom_x = x

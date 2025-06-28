@@ -10,7 +10,7 @@ from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback,
 from stable_baselines3.common.monitor import Monitor
 
 # Import environment Anda
-from rovid_env import GazeboEnv
+from phase2_env_fusion_col_rand_start import GazeboEnv
 
 # Fungsi 'maker' tetap sama
 def make_env(port, rank, log_dir):

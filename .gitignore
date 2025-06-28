@@ -1,2 +1,6 @@
 TD3/sb3_logs_rovid_final/
 TD3/__pycache__/
+catkin_ws/build
+catkin_ws/devel
+catkin_ws/build_isolated
+catkin_ws/devel_isolated
