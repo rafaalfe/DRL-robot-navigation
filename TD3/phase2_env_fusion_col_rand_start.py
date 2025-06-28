@@ -208,7 +208,7 @@ class GazeboEnv(gym.Env):
         self.current_step += 1
 
         # 1. Scaling aksi dari [-1, 1] ke kecepatan fisik
-        linear_vel = (action[0] + 1) / 2 * 0.5  # Map ke [0, 0.5] m/s
+        linear_vel = action[0] * 0.35 + 0.15  # Map ke [0, 0.5] m/s
         angular_vel = action[1] * 1.0         # Map ke [-1.0, 1.0] rad/s
         
         vel_cmd = Twist()

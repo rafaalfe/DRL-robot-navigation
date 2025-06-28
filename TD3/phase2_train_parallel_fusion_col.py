@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # Anda bisa mengatur ulang total_timesteps untuk sesi fine-tuning ini
     # Misalnya, Anda ingin menambahkan 2 juta step lagi
     total_timesteps = int(2e6) 
-    log_dir = "./sb3_logs_rovid_finetuning/" # Ganti nama log dir agar tidak tercampur
+    log_dir = "./sb3_logs_rovid_phase2/" # Ganti nama log dir agar tidak tercampur
     os.makedirs(log_dir, exist_ok=True)
 
     print(f"Menyiapkan {num_cpu} environment training paralel...")
@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     # 1. Tentukan path ke model yang ingin Anda muat (model 3 juta step Anda)
     # GANTI PATH INI dengan path yang benar ke file .zip model Anda
-    model_to_load_path = "sb3_logs_rovid_final/best_model.zip" 
+    model_to_load_path = "/home/rafaalfe/new/DRL-robot-navigation/TD3/sb3_logs_rovid_final/best_model/best_model.zip" 
 
     if os.path.exists(model_to_load_path):
         print("="*50)
@@ -61,7 +61,7 @@ if __name__ == '__main__':
             model_to_load_path,
             env=train_env,
             # Anda bisa menimpa beberapa parameter jika mau, contoh:
-            # learning_rate=3e-5 
+            learning_rate=1e-5 
         )
         print("Model berhasil dimuat.")
     else:
