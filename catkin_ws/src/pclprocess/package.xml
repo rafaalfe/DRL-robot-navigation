@@ -1,31 +1,59 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>pclprocess</name>
-  <version>1.0.0</version>
-  <description>ROS package for slicing RealSense L515 pointcloud into three laser scans</description>
-  
-  <maintainer email="your_email@example.com">Your Name</maintainer>
-  <license>MIT</license>
-  
+  <version>0.0.0</version>
+  <description>The pclprocess package</description>
+
+  <maintainer email="rafaalfe@todo.todo">rafaalfe</maintainer>
+  <license>TODO</license>
+
+  <!--
+    Dependensi yang dibutuhkan saat kompilasi.
+  -->
   <buildtool_depend>catkin</buildtool_depend>
-  
-    <build_depend>cv_bridge</build_depend>
-    <build_depend>sensor_msgs</build_depend>
-    <build_depend>roscpp</build_depend>
-    <build_depend>rospy</build_depend>
-    <build_depend>std_msgs</build_depend>
-    
-    <build_depend>message_filters</build_depend>
-    <exec_depend>cv_bridge</exec_depend>
-    <exec_depend>sensor_msgs</exec_depend>
-    <exec_depend>roscpp</exec_depend>
-    <exec_depend>rospy</exec_depend>
-    <exec_depend>std_msgs</exec_depend>
-    <exec_depend>message_filters</exec_depend>
-    <depend>tf2_ros</depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>message_filters</build_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_depend>nav_core</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>costmap_2d</build_depend>
 
-    
+  <!--
+    Dependensi yang dibutuhkan oleh package lain yang menggunakan package ini.
+    Untuk keamanan, kita daftarkan semua dependensi di sini.
+  -->
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>rospy</build_export_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_export_depend>cv_bridge</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>message_filters</build_export_depend>
+  <build_export_depend>tf2_ros</build_export_depend>
+  <build_export_depend>nav_core</build_export_depend>
+  <build_export_depend>pluginlib</build_export_depend>
+  <build_export_depend>costmap_2d</build_export_depend>
 
+  <!--
+    Dependensi yang dibutuhkan saat runtime (eksekusi).
+    Ini adalah bagian yang paling penting untuk error "undefined symbol".
+  -->
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>message_filters</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>nav_core</exec_depend>
+  <exec_depend>pluginlib</exec_depend>
+  <exec_depend>costmap_2d</exec_depend>
+
+  <!-- Tag export untuk mendaftarkan plugin -->
   <export>
+    <nav_core plugin="${prefix}/plugins/local_planner_plugin.xml"/>
   </export>
 </package>

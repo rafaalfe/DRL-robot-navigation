@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="abcd">
+    <static>true</static> <!-- 'false' agar bisa bergerak, 'true' jika objek diam seperti gedung -->
+    <link name="link_utama">
+      
+      <!-- Properti Tumbukan (Collision) -->
+      <collision name="collision">
+        <geometry>
+          <mesh>
+            <uri>model://labc_1door/meshes/LABC_2Door.dae</uri>
+            <scale>1 1 1</scale> <!-- Ubah skala jika perlu, format: "X Y Z" -->
+          </mesh>
+        </geometry>
+      </collision>
+      
+      <!-- Properti Visual -->
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://labc_1door/meshes/LABC_2Door.dae</uri>
+            <scale>1 1 1</scale> <!-- Pastikan skala sama dengan collision -->
+          </mesh>
+        </geometry>
+      </visual>
+
+    </link>
+  </model>
+</sdf>

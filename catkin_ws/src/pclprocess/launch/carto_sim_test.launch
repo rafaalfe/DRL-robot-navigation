@@ -1,0 +1,42 @@
+<launch>
+    <!-- 
+        File launch ini menjalankan sistem navigasi real-time berbasis SLAM yang lengkap.
+    -->
+
+    <!-- 1. Mengatur parameter waktu simulasi secara global -->
+    <param name="/use_sim_time" value="true"/>
+
+    <!-- 
+        2. Menjalankan Robot State Publisher (jika belum berjalan dari launch file lain).
+        Jika sudah berjalan, Anda bisa memberi komentar atau menghapus blok ini.
+    -->
+    <!-- 3. Menjalankan Cartographer untuk SLAM -->
+    <arg name="configuration_directory" default="$(find pclprocess)/config"/>
+    <arg name="configuration_basename" default="rplidar.lua"/>
+
+    <node name="cartographer_node" pkg="cartographer_ros"
+        type="cartographer_node" args="
+            -configuration_directory $(arg configuration_directory)
+            -configuration_basename $(arg configuration_basename)"
+        output="screen">
+      
+      <!-- 
+          PERUBAHAN UTAMA: Remapping Topik Sensor.
+          Ini secara eksplisit memberitahu Cartographer topik mana yang harus digunakan
+          untuk laser scan dan odometry. Ini adalah bagian yang hilang.
+      -->
+      <remap from="scan" to="/scan"/>
+      <remap from="odom" to="/rovid/odom"/>
+    </node>
+
+    <!-- Node ini mengubah data dari Cartographer menjadi peta grid yang bisa dilihat di RViz -->
+    <node name="cartographer_occupancy_grid_node" pkg="cartographer_ros"
+        type="cartographer_occupancy_grid_node" args="-resolution 0.05"/>
+
+    <!-- 4. Menjalankan DRL Planner Anda -->
+    <node pkg="pclprocess" type="drl_standalone.py" name="drl_local_planner_standalone" output="screen">
+        <param name="model_path" value="/home/rafaalfe/training_phase2/rovid_phase2_10cpu/best_model/best_model.zip" />
+        <param name="control_rate" value="10" />
+    </node>
+
+</launch>

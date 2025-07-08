@@ -1,0 +1,9 @@
+# Parameter spesifik untuk global_costmap
+global_costmap:
+  global_frame: map
+  robot_base_frame: base_link
+  update_frequency: 5.0
+  publish_frequency: 5.0
+  # Kembali menggunakan peta statis jika Anda menjalankan lokalisasi (AMCL)
+  # atau atur ke false jika menggunakan SLAM (Cartographer)
+  static_map: true

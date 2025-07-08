@@ -21,10 +21,10 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 # --- Konstanta Global ---
 GOAL_REACHED_DIST = 0.3
-COLLISION_DIST = 0.55  # Jarak deteksi tabrakan dari RPLiDAR
+COLLISION_DIST = 0.42  # Jarak deteksi tabrakan dari RPLiDAR
 TIME_DELTA = 0.1  # Durasi setiap step
 max_episode_steps = 500
-REALSENSE_COLLISION_DIST = 0.6 # Jarak tabrakan yang lebih dekat untuk sensor depan (misal: 35 cm)
+REALSENSE_COLLISION_DIST = 0.40 # Jarak tabrakan yang lebih dekat untuk sensor depan (misal: 35 cm)
 
 
 def check_pos(x, y):
@@ -555,9 +555,12 @@ class GazeboEnv(gym.Env):
         reward_dist = (prev_distance - distance_to_goal) * W_DIST
         self.last_distance = distance_to_goal
 
-        reward_laser = W_LASER if min_overall_dist < 0.7 else 0.0
+        reward_laser = W_LASER if min_overall_dist < 0.55 else 0.0
+        reward_obstacle = 0.0
+        if min_overall_dist < 0.55:
+            reward_obstacle = -1.5 * (1.0 - (min_overall_dist / 0.55))
         reward_action = abs(angular_vel) * W_ACTION
         reward_time = W_TIME
-        total_reward = reward_dist + reward_laser + reward_action + reward_time
+        total_reward = reward_dist + reward_action + reward_time + reward_obstacle
 
         return total_reward

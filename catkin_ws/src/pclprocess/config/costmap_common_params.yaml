@@ -1,0 +1,10 @@
+# Parameter umum untuk kedua costmap
+footprint: [[0.25, 0.25], [0.25, -0.25], [-0.25, -0.25], [-0.25, 0.25]]
+
+obstacle_layer:
+  observation_sources: laser_scan_sensor point_cloud_sensor
+  laser_scan_sensor: {sensor_frame: rplidar_link, data_type: LaserScan, topic: /scan, marking: true, clearing: true}
+  point_cloud_sensor: {sensor_frame: camera_l515_depth_frame, data_type: PointCloud2, topic: /depth_scan_cloud, marking: true, clearing: true}
+
+inflation_layer:
+  inflation_radius: 0.55

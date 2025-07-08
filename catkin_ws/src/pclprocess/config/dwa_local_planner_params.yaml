@@ -1,0 +1,22 @@
+# Parameter untuk DWAPlannerROS yang 'dilumpuhkan'
+DWAPlannerROS:
+  # --- Parameter Kecepatan & Akselerasi (SEMUA DINONAKTIFKAN) ---
+  max_vel_x: 0.0
+  min_vel_x: 0.0
+  max_vel_y: 0.0
+  min_vel_y: 0.0
+  max_trans_vel: 0.0
+  min_trans_vel: 0.0
+  max_rot_vel: 0.0
+  min_rot_vel: 0.0
+  acc_lim_x: 0.0
+  acc_lim_y: 0.0
+  acc_lim_theta: 0.0
+
+  # --- Parameter Toleransi Goal (Dibuat sangat longgar) ---
+  xy_goal_tolerance: 1.0
+  yaw_goal_tolerance: 6.28
+
+  # --- Parameter Scoring (Dibuat agar tidak pernah gagal) ---
+  # Mengabaikan rintangan agar tidak gagal saat melakukan pengecekan internal
+  occdist_scale: 0.0

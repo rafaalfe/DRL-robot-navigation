@@ -1,0 +1,99 @@
+# Konfigurasi Utama untuk move_base dengan DRL Planner Plugin
+
+# --- PERUBAHAN PALING PENTING ---
+# Tentukan plugin C++ Anda sebagai local planner.
+base_local_planner: "drl_local_planner/DrlLocalPlanner"
+
+# Tetap gunakan global planner yang andal.
+base_global_planner: "global_planner/GlobalPlanner"
+
+# --- Parameter Perilaku Umum ---
+# Anda bisa mengaktifkan kembali recovery behavior jika diinginkan,
+# karena sistem sekarang lebih stabil.
+recovery_behavior_enabled: true
+clearing_rotation_allowed: false
+
+controller_frequency: 10.0
+planner_patience: 10.0
+controller_patience: 15.0
+
+# --- Memuat Konfigurasi Costmap dari File Terpisah ---
+# Cara ini lebih rapi dan sesuai standar ROS.
+global_costmap:
+  ros__parameters:
+    plugins:
+      - {name: static_layer,    type: "costmap_2d::StaticLayer"}
+      - {name: obstacle_layer,  type: "costmap_2d::ObstacleLayer"}
+      - {name: inflation_layer, type: "costmap_2d::InflationLayer"}
+    # Muat parameter dari file lain
+    default_params_file: "$(find your_package_name)/config/costmap_common_params.yaml"
+    global_costmap_params_file: "$(find your_package_name)/config/global_costmap_params.yaml"
+
+local_costmap:
+  ros__parameters:
+    plugins:
+      - {name: obstacle_layer,  type: "costmap_2d::ObstacleLayer"}
+      - {name: inflation_layer, type: "costmap_2d::InflationLayer"}
+    # Muat parameter dari file lain
+    default_params_file: "$(find your_package_name)/config/costmap_common_params.yaml"
+    local_costmap_params_file: "$(find your_package_name)/config/local_costmap_params.yaml"
+
+# --- Parameter Khusus untuk Plugin DRL Anda ---
+# Parameter ini akan dibaca oleh fungsi initialize() di dalam kode C++ Anda.
+DrlLocalPlanner:
+
+  # --- Parameter Perilaku Navigasi ---
+
+  # look_ahead_dist: Jarak (dalam meter) untuk menentukan tujuan lokal.
+  # Parameter ini tidak ada di env training Anda (yang menggunakan goal global),
+  # jadi nilai 1.0 adalah titik awal yang baik untuk dicoba.
+  # Tipe: double, Default: 1.0
+  look_ahead_dist: 1.0
+
+  # goal_tolerance: Jarak (dalam meter) di mana robot dianggap telah sampai.
+  # Diambil dari: GOAL_REACHED_DIST = 0.3
+  # Tipe: double, Default: 0.3
+  goal_tolerance: 0.3
+
+
+  # --- Parameter Sensor dan Observasi (SANGAT PENTING!) ---
+
+  # laser_topic: Topik untuk data RPLiDAR (LaserScan).
+  # Diambil dari: self.rplidar_sub = rospy.Subscriber("/scan", ...)
+  # Tipe: string, Default: "/scan"
+  laser_topic: "/scan"
+
+  # observation_size: Ukuran TOTAL dari vektor observasi.
+  # Diambil dari: state_dim = self.perception_state_size + self.rplidar_state_size + 4 -> 1050 + 240 + 4 = 1294
+  # Tipe: int, Default: 1294
+  observation_size: 1294
+
+  # laser_obs_size: Jumlah data dari RPLiDAR (LaserScan) dalam observasi.
+  # Diambil dari: self.rplidar_state_size = 240
+  # Tipe: int, Default: 240
+  #
+  # PERINGATAN: Kode C++ Anda saat ini hanya menggunakan data dari 'laser_topic'.
+  # Anda HARUS memodifikasi C++ untuk juga memasukkan 1050 data dari PointCloud2 (RealSense)
+  # agar sesuai dengan total 'observation_size'.
+  laser_obs_size: 240
+
+
+  # --- Parameter Model dan Aksi (SANGAT PENTING!) ---
+
+  # model_path: Path menuju file model TorchScript (.pt).
+  # Pastikan ini menunjuk ke lokasi model Anda yang sebenarnya.
+  # Tipe: string, Default: "drl_actor_model.pt"
+  model_path: "$(find pclprocess)drl_actor_model.pt"
+
+  # linear_scale & linear_offset: Faktor untuk menskalakan output kecepatan linear.
+  # Rumus: vel_linear = output_model * linear_scale + linear_offset
+  # Diambil dari: linear_vel = action[0] * 0.35 + 0.15
+  # Tipe: double
+  linear_scale: 0.35
+  linear_offset: 0.15
+
+  # angular_scale: Faktor untuk menskalakan output kecepatan angular.
+  # Rumus: vel_angular = output_model * angular_scale
+  # Diambil dari: angular_vel = action[1] * 1.0
+  # Tipe: double
+  angular_scale: 1.0
