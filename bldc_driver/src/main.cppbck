@@ -1,0 +1,140 @@
+#include <SimpleFOC.h>
+#include <ros.h>
+#include <std_msgs/Float32.h>
+#include <std_msgs/Float64.h>
+#include <geometry_msgs/Twist.h>
+
+// Motor dan Sensor
+HallSensor sensor = HallSensor(18, 19, 15, 12); // Motor kiri
+void doA() { sensor.handleA(); }
+void doB() { sensor.handleB(); }
+void doC() { sensor.handleC(); }
+
+HallSensor sensor1 = HallSensor(5, 23, 13, 12); // Motor kanan
+void doA1() { sensor1.handleA(); }
+void doB1() { sensor1.handleB(); }
+void doC1() { sensor1.handleC(); }
+
+// ROS Nodehandle
+ros::NodeHandle nh;
+
+// ROS Subscriber untuk /cmd_vel
+void cmdVelCallback(const geometry_msgs::Twist& cmd_msg);
+ros::Subscriber<geometry_msgs::Twist> sub_cmd_vel("cmd_vel", cmdVelCallback);
+
+// ROS Publisher untuk data encoder
+std_msgs::Float64 left_encoder_msg;
+ros::Publisher pub_left_encoder("motor_left/encoder", &left_encoder_msg);
+
+std_msgs::Float64 right_encoder_msg;
+ros::Publisher pub_right_encoder("motor_right/encoder", &right_encoder_msg);
+
+// Motor Instances
+BLDCMotor motor = BLDCMotor(14);
+BLDCDriver3PWM driver = BLDCDriver3PWM(32, 33, 25);
+BLDCMotor motor1 = BLDCMotor(14);
+BLDCDriver3PWM driver1 = BLDCDriver3PWM(26, 27, 14);
+
+// Variabel Target Kecepatan
+float target_velocity_left = 0;
+float target_velocity_right = 0;
+
+// Parameter Robot
+const float wheel_base = 0.5; // Jarak antar roda (meter)
+
+void setup() {
+
+  sensor.pullup = Pullup::USE_EXTERN;
+  sensor1.pullup = Pullup::USE_EXTERN;
+  // Inisialisasi sensor
+  sensor.init();
+  sensor1.init();
+  sensor.enableInterrupts(doA, doB, doC);
+  sensor1.enableInterrupts(doA1, doB1, doC1);
+  motor.linkSensor(&sensor);
+  motor1.linkSensor(&sensor1);
+
+  // Inisialisasi driver
+  driver.voltage_power_supply = 20;
+  driver.init();
+  motor.linkDriver(&driver);
+  motor.voltage_limit = 3; // [V]
+  motor.velocity_limit = 20; // [rad/s]
+
+  driver1.voltage_power_supply = 20;
+  driver1.init();
+  motor1.linkDriver(&driver1);
+  motor1.voltage_limit = 3; // [V]
+  motor1.velocity_limit = 20; // [rad/s]
+
+  // Mode Open Loop
+  motor.controller = MotionControlType::velocity_openloop;
+  motor1.controller = MotionControlType::velocity_openloop;
+
+  // Inisialisasi motor
+  motor.init();
+  motor1.init();
+  motor.initFOC();
+  motor1.initFOC();
+
+  // Inisialisasi ROS
+  nh.getHardware()->setBaud(115200);
+  nh.initNode();
+  nh.subscribe(sub_cmd_vel);
+  nh.advertise(pub_left_encoder);
+  nh.advertise(pub_right_encoder);
+
+  Serial.begin(115200);
+  // motor.useMonitoring(Serial);
+  // motor1.useMonitoring(Serial);
+  Serial.println("Robot ready!");
+}
+
+// Callback ROS untuk /cmd_vel
+void cmdVelCallback(const geometry_msgs::Twist& cmd_msg) {
+  float linear_x = cmd_msg.linear.x;   // Kecepatan linear
+  float angular_z = cmd_msg.angular.z; // Kecepatan angular
+
+  // Hitung kecepatan roda kiri dan kanan
+  target_velocity_left = linear_x - (angular_z * wheel_base / 2);
+  target_velocity_right = linear_x + (angular_z * wheel_base / 2);
+}
+
+void readRawHallSensor() {
+  // Membaca status logika dari tiga sensor Hall
+  int hallA = digitalRead(18);  // Ganti dengan pin Hall A dari sensor
+  int hallB = digitalRead(19);  // Ganti dengan pin Hall B dari sensor
+  int hallC = digitalRead(15);  // Ganti dengan pin Hall C dari sensor
+
+  // Menggabungkan menjadi nilai biner 3-bit
+  int hall_state = (hallA << 2) | (hallB << 1) | hallC;
+
+  // Tampilkan hasil ke Serial Monitor
+  Serial.print("Hall Sensor State: ");
+  Serial.println(hall_state, BIN);
+}
+
+
+void loop() {
+  // Gerakkan motor sesuai target
+  motor.loopFOC();
+  motor1.loopFOC();
+  motor.move(target_velocity_left);
+  motor1.move(target_velocity_right);
+  sensor.update();
+  sensor1.update();
+
+  // Serial.println(sensor1.getAngle());
+  // Serial.println("\t");
+  // Serial.println(sensor1.getVelocity());
+
+
+  // // Publikasikan data encoder
+  // left_encoder_msg.data = sensor.getAngle();  // Kecepatan motor kiri [rad/s]
+  // right_encoder_msg.data = sensor1.getAngle(); // Kecepatan motor kanan [rad/s]
+  // pub_left_encoder.publish(&left_encoder_msg);
+  // pub_right_encoder.publish(&right_encoder_msg);
+
+  // ROS Spin
+  nh.spinOnce();
+}
